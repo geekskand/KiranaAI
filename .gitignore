@@ -24,3 +24,6 @@ coverage/
 # Logs
 *.log
 npm-debug.log*
+
+# Private jury / submission docs (keep local only)
+JURY_TECH_ARCHITECTURE.md
