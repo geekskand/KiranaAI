@@ -27,3 +27,4 @@ npm-debug.log*
 
 # Private jury / submission docs (keep local only)
 JURY_TECH_ARCHITECTURE.md
+SUBMISSION.md

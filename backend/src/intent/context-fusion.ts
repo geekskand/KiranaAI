@@ -44,11 +44,25 @@ export function fuseContext(inputs: FusionInputs): FusedContext {
   // Preference signals
   const dietaryFlags: DietaryFlag[] = profile?.dietaryFlags ?? [];
   let preferredBrand: string | undefined;
+
+  // Preference Graph edge weights: brand -> affinity (0..1) and recency (0..1)
+  // for the resolved category. These are the weighted edges the Decision Score
+  // reads, and they are updated on every accept/reject by the learning loop.
+  const brandAffinity: Record<string, number> = {};
+  const brandRecency: Record<string, number> = {};
   if (profile && category) {
     const loyalties = profile.brandLoyalty
       .filter((b) => b.category === category)
       .sort((a, b) => b.score - a.score);
     preferredBrand = loyalties[0]?.brand;
+
+    const now = Date.now();
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+    for (const b of loyalties) {
+      brandAffinity[b.brand] = Math.max(0, Math.min(1, b.score / 100)); // 0..1 edge weight
+      const age = now - (b.lastUpdated ?? now);
+      brandRecency[b.brand] = Math.max(0, 1 - age / THIRTY_DAYS); // newer = higher
+    }
   }
 
   // Learned signals from Decision Memory
@@ -95,11 +109,14 @@ export function fuseContext(inputs: FusionInputs): FusedContext {
     priceSensitive,
     rejectedBrands: decisionSignals.rejected,
     acceptedBrands: decisionSignals.accepted,
+    brandAffinity,
+    brandRecency,
     memoryInsights,
     recentItems,
     cartValue,
     deliveryGap,
     freeDeliveryThreshold,
+    cartProductIds: cart.map((i) => i.productId),
     candidates,
     fragments: retrieval.fragments,
   };

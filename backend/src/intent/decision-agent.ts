@@ -14,7 +14,7 @@
 import type { Decision, FusedContext } from './types.js';
 import type { ProductCard, DietaryFlag } from '../models/types.js';
 import { productRag } from './rag/product-rag.js';
-import type { CatalogProduct } from '../seed/catalog.js';
+import { coOccurrenceRules, type CatalogProduct } from '../seed/catalog.js';
 
 const HIGH_CONFIDENCE = 0.85;
 const MEDIUM_CONFIDENCE = 0.55;
@@ -72,20 +72,83 @@ function eligibleProducts(ctx: FusedContext): CatalogProduct[] {
   });
 }
 
-/** Rank eligible products using fused preference/learning signals. */
+/** Rank eligible products by their Decision Score (highest first). */
 function rank(products: CatalogProduct[], ctx: FusedContext): CatalogProduct[] {
-  return [...products].sort((a, b) => score(b, ctx) - score(a, ctx));
+  return [...products].sort((a, b) => decisionScore(b, ctx).total - decisionScore(a, ctx).total);
 }
 
-function score(p: CatalogProduct, ctx: FusedContext): number {
-  let s = 0;
-  if (ctx.preferredBrand && p.brand === ctx.preferredBrand) s += 5;
-  if (ctx.acceptedBrands.includes(p.brand)) s += 3;
-  if (ctx.priceSensitive) s += Math.max(0, 3 - p.price / 50); // cheaper scores higher
-  // Health-aligned bonus
-  if (ctx.dietaryFlags.includes('organic-only') && p.isOrganic) s += 2;
-  if (ctx.dietaryFlags.includes('low-sugar') && p.isLowSugar) s += 2;
-  return s;
+/**
+ * Decision Score — the core ranking algorithm.
+ *
+ *   Score = wB·BrandAffinity + wP·PriceAffinity + wH·HealthAffinity
+ *         + wR·Recency + wC·BasketContext
+ *
+ * Each term is normalised to 0..1. Brand affinity and recency are the weighted
+ * edges of the per-user preference graph (updated on every accept/reject by the
+ * learning loop). Price affinity rewards cheaper items when the user is price
+ * sensitive. Health affinity rewards dietary alignment. Basket context rewards
+ * items that co-occur with what is already in the cart.
+ */
+const WEIGHTS = { brand: 0.40, price: 0.20, health: 0.15, recency: 0.10, basket: 0.15 } as const;
+
+interface ScoreBreakdown {
+  brand: number;
+  price: number;
+  health: number;
+  recency: number;
+  basket: number;
+  total: number;
+}
+
+function decisionScore(p: CatalogProduct, ctx: FusedContext): ScoreBreakdown {
+  // Brand affinity (0..1): preference-graph edge weight; boosted if accepted before.
+  let brand = ctx.brandAffinity[p.brand] ?? 0;
+  if (ctx.acceptedBrands.includes(p.brand)) brand = Math.min(1, brand + 0.4);
+  if (ctx.preferredBrand === p.brand) brand = Math.max(brand, 0.9);
+
+  // Price affinity (0..1): cheaper scores higher, only weighted if price sensitive.
+  // Normalised against the candidate price range.
+  const prices = ctx.candidates.map((c) => c.price);
+  const min = Math.min(...prices, p.price);
+  const max = Math.max(...prices, p.price);
+  const norm = max > min ? (max - p.price) / (max - min) : 1;
+  const price = ctx.priceSensitive ? norm : norm * 0.3;
+
+  // Health affinity (0..1): alignment with dietary flags.
+  let health = 0;
+  if (ctx.dietaryFlags.includes('organic-only')) health += p.isOrganic ? 1 : 0;
+  if (ctx.dietaryFlags.includes('low-sugar')) health += p.isLowSugar ? 1 : 0;
+  if (ctx.dietaryFlags.includes('gluten-free')) health += p.isGlutenFree ? 1 : 0;
+  if (!p.containsPalmOil) health += 0.3;
+  health = Math.min(1, health);
+
+  // Recency (0..1): how recently this brand was chosen.
+  const recency = ctx.brandRecency[p.brand] ?? 0;
+
+  // Basket context (0..1): does this item co-occur with current cart items?
+  const basket = basketContextScore(p, ctx);
+
+  const total =
+    WEIGHTS.brand * brand +
+    WEIGHTS.price * price +
+    WEIGHTS.health * health +
+    WEIGHTS.recency * recency +
+    WEIGHTS.basket * basket;
+
+  return { brand, price, health, recency, basket, total };
+}
+
+/** Basket-context affinity from co-occurrence rules. */
+function basketContextScore(p: CatalogProduct, ctx: FusedContext): number {
+  if (ctx.cartProductIds.length === 0) return 0;
+  let best = 0;
+  for (const cartId of ctx.cartProductIds) {
+    const rule = coOccurrenceRules.find((r) => r.triggerProductId === cartId);
+    if (!rule) continue;
+    const companion = rule.companions.find((c) => c.productId === p.productId);
+    if (companion) best = Math.max(best, companion.frequency);
+  }
+  return best;
 }
 
 export function decide(ctx: FusedContext): Decision {
@@ -141,7 +204,12 @@ export function decide(ctx: FusedContext): Decision {
       ctx.priceSensitive;
 
     if (hasStrongSignal) {
-      reasoning.push(`ACT: auto-add ${top.name} (confident from fused signals)`);
+      const sb = decisionScore(top, ctx);
+      reasoning.push(
+        `Decision Score for ${top.name} = ${sb.total.toFixed(2)} ` +
+        `[brand ${sb.brand.toFixed(2)} · price ${sb.price.toFixed(2)} · health ${sb.health.toFixed(2)} · recency ${sb.recency.toFixed(2)} · basket ${sb.basket.toFixed(2)}]`
+      );
+      reasoning.push(`ACT: auto-add ${top.name} (top Decision Score)`);
       return decision(
         'ACT',
         `Added ${top.name} — ₹${top.price}.${ctx.deliveryGap > 0 ? ` You're ₹${ctx.deliveryGap} from free delivery.` : ''}`,

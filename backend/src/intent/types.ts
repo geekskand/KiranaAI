@@ -83,6 +83,11 @@ export interface FusedContext {
   rejectedBrands: string[];
   acceptedBrands: string[];
 
+  // Preference Graph edge weights (the per-brand affinity for the resolved
+  // category) and recency, used by the Decision Score algorithm.
+  brandAffinity: Record<string, number>;   // brand -> loyalty 0..1 (edge weight)
+  brandRecency: Record<string, number>;    // brand -> recency 0..1 (newer = higher)
+
   // Memory signals (free-text insights)
   memoryInsights: string[];
 
@@ -93,6 +98,7 @@ export interface FusedContext {
   cartValue: number;
   deliveryGap: number;
   freeDeliveryThreshold: number;
+  cartProductIds: string[];                 // for basket-context affinity
 
   // Candidate products from product intelligence
   candidates: Product[];

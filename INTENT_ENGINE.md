@@ -224,14 +224,45 @@ unknown, she asks only the **highest priority**:
 Allergy  →  Dietary restriction  →  Brand preference  →  Quantity
 ```
 
-### Ranking signals
+### Ranking signals — the Decision Score algorithm
+
+Eligible candidates (after hard-constraint filtering) are ranked by an explicit
+weighted **Decision Score**, where each term is normalised to 0..1:
+
 ```
-+5  matches preferred brand
-+3  previously accepted brand
-+3  cheaper (when price-sensitive)
-+2  organic (when organic-only flag)
-+2  low-sugar (when low-sugar flag)
+Decision Score = wB·BrandAffinity        (0.40)
+               + wP·PriceAffinity        (0.20)
+               + wH·HealthAffinity       (0.15)
+               + wR·Recency              (0.10)
+               + wC·BasketContext        (0.15)
 ```
+
+- **BrandAffinity** — the per-user, per-category **preference-graph edge weight**
+  (loyalty score 0..1), boosted if the brand was accepted before. This is the
+  weighted graph that learns:
+
+```
+User
+ ├── Milk
+ │     ├── Amul          (0.95)
+ │     └── Mother Dairy  (0.05)
+ │
+ └── Sugar
+       ├── Cheapest/Generic (0.80)
+       └── Organic          (0.20)
+```
+
+  Every accept/reject updates these edge weights (learning loop).
+- **PriceAffinity** — cheaper scores higher, normalised across the candidate
+  price range; full weight only when the user is price-sensitive.
+- **HealthAffinity** — alignment with dietary flags (organic, low-sugar,
+  gluten-free, palm-oil-free).
+- **Recency** — how recently this brand was chosen (decays over ~30 days).
+- **BasketContext** — co-occurrence strength with items already in the cart.
+
+The score breakdown is emitted in the reasoning trace, e.g.
+`Decision Score for Amul Gold 1L = 0.86 [brand 0.95 · price 0.40 · health 0.30 · recency 0.80 · basket 0.00]`,
+so the decision is fully explainable.
 
 ### Worked examples
 ```
