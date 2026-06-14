@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CartProvider } from './store/CartContext';
+import { PersonaProvider } from './store/PersonaContext';
 import { Navbar, type View } from './components/Navbar';
 import { Home } from './views/Home';
 import { Store } from './views/Store';
@@ -22,20 +23,22 @@ function App() {
   };
 
   return (
-    <CartProvider>
-      <div className="app-shell">
-        <Navbar view={view} onNavigate={navigate} />
-        <main className="app-main">
-          {view === 'home' && <Home onNavigate={navigate} onPickCategory={pickCategory} />}
-          {view === 'store' && <Store initialCategory={storeCategory} />}
-          {view === 'cart' && <Cart onNavigate={navigate} />}
-          {view === 'checkout' && <Checkout onNavigate={navigate} />}
-        </main>
-        <footer className="app-footer">
-          Amazon Now · Powered by Sanaya AI · Demo
-        </footer>
-      </div>
-    </CartProvider>
+    <PersonaProvider>
+      <CartProvider>
+        <div className="app-shell">
+          <Navbar view={view} onNavigate={navigate} />
+          <main className="app-main">
+            {view === 'home' && <Home onNavigate={navigate} onPickCategory={pickCategory} />}
+            {view === 'store' && <Store initialCategory={storeCategory} />}
+            {view === 'cart' && <Cart onNavigate={navigate} />}
+            {view === 'checkout' && <Checkout onNavigate={navigate} />}
+          </main>
+          <footer className="app-footer">
+            Amazon Now · Powered by Sanaya AI · Demo
+          </footer>
+        </div>
+      </CartProvider>
+    </PersonaProvider>
   );
 }
 

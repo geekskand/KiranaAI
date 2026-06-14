@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useKiranaSocket, type AssistantProduct } from '../hooks/useKiranaSocket';
 import { useCart } from '../store/CartContext';
+import { usePersona } from '../store/PersonaContext';
 import { PRODUCTS, categoryIcon, type Product } from '../data/catalog';
 import { SanayaAvatar } from './SanayaAvatar';
 import './Assistant.css';
-
-const PERSONAS = [
-  { id: 'persona-budget-rahul', label: 'Rahul · Budget' },
-  { id: 'persona-health-priya', label: 'Priya · Health' },
-];
 
 const SUGGESTIONS = ['milk', 'add rice', 'healthy snacks', 'substitute for butter', 'chocolate'];
 
@@ -62,7 +58,7 @@ function ProductChip({ p }: { p: AssistantProduct }) {
 }
 
 export function Assistant() {
-  const [persona, setPersona] = useState(PERSONAS[0].id);
+  const { persona, setPersona, personas } = usePersona();
   const { status, messages, thinking, send } = useKiranaSocket(persona);
   const [input, setInput] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
@@ -90,7 +86,7 @@ export function Assistant() {
         <div className="assistant__persona">
           <label>Shopping as</label>
           <select value={persona} onChange={(e) => setPersona(e.target.value)} aria-label="Persona">
-            {PERSONAS.map((p) => (
+            {personas.map((p) => (
               <option key={p.id} value={p.id}>{p.label}</option>
             ))}
           </select>

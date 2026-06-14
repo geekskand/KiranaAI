@@ -72,10 +72,15 @@ export function useKiranaSocket(persona: string) {
     };
   }, [persona]);
 
+  // Reconnect and reset the conversation whenever the persona changes,
+  // so one persona's chat never bleeds into another's.
   useEffect(() => {
+    setMessages([]);
+    setThinking(false);
+    sessionRef.current = `web-${persona}-${Date.now()}`;
     connect();
     return () => wsRef.current?.close();
-  }, [connect]);
+  }, [connect, persona]);
 
   const send = useCallback((text: string) => {
     const trimmed = text.trim();

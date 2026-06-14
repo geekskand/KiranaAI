@@ -1,5 +1,6 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Product } from '../data/catalog';
+import { usePersona } from './PersonaContext';
 
 export interface CartLine {
   product: Product;
@@ -31,11 +32,15 @@ const DELIVERY_CHARGE = 29;
 const TAX_RATE = 0.05; // 5% GST on the subtotal
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
-const STORAGE_KEY = 'kirana-cart-v1';
 
-function loadInitial(): CartLine[] {
+/** Per-persona storage key so each persona keeps a separate cart. */
+function storageKey(persona: string): string {
+  return `kirana-cart-v2:${persona}`;
+}
+
+function loadFor(persona: string): CartLine[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(persona));
     if (raw) return JSON.parse(raw) as CartLine[];
   } catch {
     /* ignore */
@@ -44,15 +49,26 @@ function loadInitial(): CartLine[] {
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [lines, setLines] = useState<CartLine[]>(loadInitial);
+  const { persona } = usePersona();
+  const [lines, setLines] = useState<CartLine[]>(() => loadFor(persona));
+  const currentPersona = useRef(persona);
 
+  // When the persona changes, swap to that persona's cart.
+  useEffect(() => {
+    if (currentPersona.current !== persona) {
+      currentPersona.current = persona;
+      setLines(loadFor(persona));
+    }
+  }, [persona]);
+
+  // Persist the active persona's cart.
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
+      localStorage.setItem(storageKey(persona), JSON.stringify(lines));
     } catch {
       /* ignore */
     }
-  }, [lines]);
+  }, [lines, persona]);
 
   const addItem = useCallback((product: Product) => {
     setLines((prev) => {
