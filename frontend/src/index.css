@@ -1,104 +1,16 @@
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
-  font-weight: 400;
-  color: #213547;
-  background-color: #f8fafc;
+  color: #1f2937;
 }
+
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: #f8fafc;
 }
 
-.app {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
-.app-header h1 {
-  font-size: 2.5rem;
-  margin-bottom: 0.25rem;
-  color: #4f46e5;
-}
-
-.app-header p {
-  color: #6b7280;
-  font-size: 1.1rem;
-  margin-top: 0;
-}
-
-.persona-switcher {
-  margin-top: 1rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: #fff;
-  padding: 8px 16px;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.persona-switcher label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-}
-
-.persona-switcher select {
-  padding: 6px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.app-demo {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  margin-top: 2rem;
-  text-align: left;
-}
-
-.demo-card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-}
-
-.demo-card h3 {
-  margin-top: 0;
-  font-size: 1rem;
-  color: #1f2937;
-}
-
-.demo-card ul {
-  padding-left: 1.2rem;
-  margin: 0;
-}
-
-.demo-card li {
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-  color: #4b5563;
-}
-
-.demo-card code {
-  background: #f3f4f6;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  color: #4f46e5;
-}
-
-@media (max-width: 640px) {
-  .app-demo {
-    grid-template-columns: 1fr;
-  }
-}
+button { font-family: inherit; }
