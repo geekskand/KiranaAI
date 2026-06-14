@@ -86,7 +86,7 @@ functions:
     description: Handles WebSocket disconnection and session cleanup
 
   wsDefault:
-    handler: backend/dist/handlers/websocket.default
+    handler: backend/dist/handlers/websocket.defaultHandler
     events:
       - websocket:
           route: $default

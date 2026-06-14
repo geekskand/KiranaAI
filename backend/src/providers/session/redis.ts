@@ -8,9 +8,17 @@
  * Requirements: 8.1, 8.3
  */
 
-import Redis from 'ioredis';
+import type Redis from 'ioredis';
+import { createRequire } from 'node:module';
 import type { SessionStoreProvider } from '../interfaces.js';
 import type { SessionContext } from '../../models/index.js';
+
+/** Lazily load ioredis only when a Redis store is actually constructed. */
+const requireCjs = createRequire(import.meta.url);
+function loadRedis(): typeof Redis {
+  const mod = requireCjs('ioredis');
+  return (mod.default ?? mod) as typeof Redis;
+}
 
 /** Configuration options for the Redis session store. */
 export interface RedisSessionStoreOptions {
@@ -46,7 +54,8 @@ export class RedisSessionStore implements SessionStoreProvider {
     this.ttlSeconds = ttlSeconds;
     this.keyPrefix = keyPrefix;
 
-    this.client = new Redis({
+    const RedisCtor = loadRedis();
+    this.client = new RedisCtor({
       host,
       port,
       password,

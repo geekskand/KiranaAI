@@ -51,6 +51,7 @@ import {
   collectOnboardingPreferences,
 } from '../agent/onboarding.js';
 import { catalog as seedCatalog } from '../seed/catalog.js';
+import { demoPersonas } from '../seed/personas.js';
 import { runIntentEngine } from '../intent/index.js';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -280,8 +281,14 @@ export async function handleMessage(
   // Update activity timestamp
   session.lastActivityAt = Date.now();
 
-  // 2. Load user profile for dietary restriction enforcement
-  const userProfile = await preferenceStore.getUserProfile(userId);
+  // 2. Load user profile for dietary restriction enforcement.
+  // Demo personas are bundled, so they always have a profile even if the
+  // preference store (local JSON / DynamoDB) hasn't been seeded in this env.
+  let userProfile = await preferenceStore.getUserProfile(userId);
+  if (!userProfile) {
+    const seeded = demoPersonas.find((p) => p.userId === userId);
+    if (seeded) userProfile = seeded;
+  }
   const dietaryFlags: DietaryFlag[] = userProfile?.dietaryFlags ?? [];
 
   // 3. Check if user is cold-start → trigger onboarding

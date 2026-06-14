@@ -8,8 +8,16 @@
  * Requirements: 9.1, 9.2
  */
 
-import Redis from 'ioredis';
+import type Redis from 'ioredis';
+import { createRequire } from 'node:module';
 import type { CacheProvider } from '../interfaces.js';
+
+/** Lazily load ioredis only when a Redis cache is actually constructed. */
+const requireCjs = createRequire(import.meta.url);
+function loadRedis(): typeof Redis {
+  const mod = requireCjs('ioredis');
+  return (mod.default ?? mod) as typeof Redis;
+}
 
 /** Default TTL for cached entries: 15 minutes in seconds. */
 const DEFAULT_TTL_SECONDS = 900;
@@ -47,10 +55,11 @@ export class RedisCacheProvider implements CacheProvider {
       defaultTtlSeconds = DEFAULT_TTL_SECONDS,
     } = options;
 
+    const RedisCtor = loadRedis();
     if (url) {
-      this.client = new Redis(url, { lazyConnect: true });
+      this.client = new RedisCtor(url, { lazyConnect: true });
     } else {
-      this.client = new Redis({ host, port, lazyConnect: true });
+      this.client = new RedisCtor({ host, port, lazyConnect: true });
     }
 
     this.keyPrefix = keyPrefix;
