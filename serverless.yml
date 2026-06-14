@@ -1,0 +1,244 @@
+service: kirana-ai
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ap-south-1
+  stage: ${opt:stage, 'dev'}
+  environment:
+    DYNAMODB_TABLE: ${self:service}-${self:provider.stage}
+    COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+    COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
+    WEBSOCKET_API_URL:
+      Fn::Join:
+        - ''
+        - - 'https://'
+          - !Ref WebsocketsApi
+          - '.execute-api.'
+          - ${self:provider.region}
+          - '.amazonaws.com/'
+          - ${self:provider.stage}
+    NODE_ENV: ${self:provider.stage}
+    # ElastiCache endpoint (uncomment when VPC is configured)
+    # REDIS_ENDPOINT: !GetAtt ElastiCacheCluster.RedisEndpoint.Address
+    # REDIS_PORT: !GetAtt ElastiCacheCluster.RedisEndpoint.Port
+  iam:
+    role:
+      statements:
+        # DynamoDB CRUD access
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+          Resource:
+            - !GetAtt KiranaTable.Arn
+            - !Join ['/', [!GetAtt KiranaTable.Arn, 'index', '*']]
+        # Bedrock InvokeModel access
+        - Effect: Allow
+          Action:
+            - bedrock:InvokeModel
+            - bedrock:InvokeModelWithResponseStream
+          Resource: 'arn:aws:bedrock:${self:provider.region}:*:foundation-model/*'
+        # Cognito admin user access
+        - Effect: Allow
+          Action:
+            - cognito-idp:AdminGetUser
+            - cognito-idp:AdminInitiateAuth
+            - cognito-idp:AdminCreateUser
+            - cognito-idp:AdminSetUserPassword
+          Resource: !GetAtt CognitoUserPool.Arn
+        # WebSocket Management API access
+        - Effect: Allow
+          Action:
+            - execute-api:ManageConnections
+          Resource:
+            Fn::Join:
+              - ''
+              - - 'arn:aws:execute-api:'
+                - ${self:provider.region}
+                - ':'
+                - !Ref AWS::AccountId
+                - ':'
+                - !Ref WebsocketsApi
+                - '/${self:provider.stage}/*'
+
+functions:
+  wsConnect:
+    handler: backend/src/handlers/websocket.connect
+    events:
+      - websocket:
+          route: $connect
+    description: Handles WebSocket connection establishment and auth
+
+  wsDisconnect:
+    handler: backend/src/handlers/websocket.disconnect
+    events:
+      - websocket:
+          route: $disconnect
+    description: Handles WebSocket disconnection and session cleanup
+
+  wsDefault:
+    handler: backend/src/handlers/websocket.default
+    events:
+      - websocket:
+          route: $default
+    description: Routes incoming WebSocket messages to the orchestrator
+
+  orchestrator:
+    handler: backend/src/handlers/orchestrator.handler
+    timeout: 30
+    memorySize: 512
+    description: Main orchestration handler for conversational agent pipeline
+
+resources:
+  Resources:
+    # DynamoDB Table — Single-table design
+    KiranaTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: PK
+            AttributeType: S
+          - AttributeName: SK
+            AttributeType: S
+        KeySchema:
+          - AttributeName: PK
+            KeyType: HASH
+          - AttributeName: SK
+            KeyType: RANGE
+        Tags:
+          - Key: Service
+            Value: ${self:service}
+          - Key: Stage
+            Value: ${self:provider.stage}
+
+    # Cognito User Pool
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${self:service}-user-pool-${self:provider.stage}
+        UsernameAttributes:
+          - email
+        AutoVerifiedAttributes:
+          - email
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: false
+            RequireUppercase: true
+        Schema:
+          - Name: email
+            Required: true
+            Mutable: true
+          - Name: name
+            Required: false
+            Mutable: true
+
+    # Cognito User Pool Client
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: ${self:service}-client-${self:provider.stage}
+        UserPoolId: !Ref CognitoUserPool
+        GenerateSecret: false
+        ExplicitAuthFlows:
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+          - ALLOW_USER_SRP_AUTH
+        PreventUserExistenceErrors: ENABLED
+
+    # ElastiCache — Commented out for hackathon (requires VPC setup)
+    # Uncomment and configure VPC when deploying to production
+    #
+    # ElastiCacheSubnetGroup:
+    #   Type: AWS::ElastiCache::SubnetGroup
+    #   Properties:
+    #     Description: Subnet group for KiranaAI Redis cluster
+    #     SubnetIds:
+    #       - !Ref PrivateSubnet1
+    #       - !Ref PrivateSubnet2
+    #
+    # ElastiCacheSecurityGroup:
+    #   Type: AWS::EC2::SecurityGroup
+    #   Properties:
+    #     GroupDescription: Security group for KiranaAI ElastiCache
+    #     VpcId: !Ref VPC
+    #     SecurityGroupIngress:
+    #       - IpProtocol: tcp
+    #         FromPort: 6379
+    #         ToPort: 6379
+    #         SourceSecurityGroupId: !Ref LambdaSecurityGroup
+    #
+    # ElastiCacheCluster:
+    #   Type: AWS::ElastiCache::ReplicationGroup
+    #   Properties:
+    #     ReplicationGroupDescription: KiranaAI session and price cache
+    #     Engine: redis
+    #     EngineVersion: '7.0'
+    #     CacheNodeType: cache.t3.micro
+    #     NumCacheClusters: 1
+    #     AutomaticFailoverEnabled: false
+    #     CacheSubnetGroupName: !Ref ElastiCacheSubnetGroup
+    #     SecurityGroupIds:
+    #       - !Ref ElastiCacheSecurityGroup
+
+  Outputs:
+    WebSocketApiUrl:
+      Description: WebSocket API URL
+      Value:
+        Fn::Join:
+          - ''
+          - - 'wss://'
+            - !Ref WebsocketsApi
+            - '.execute-api.'
+            - ${self:provider.region}
+            - '.amazonaws.com/'
+            - ${self:provider.stage}
+
+    DynamoDBTableName:
+      Description: DynamoDB table name
+      Value: !Ref KiranaTable
+
+    CognitoUserPoolId:
+      Description: Cognito User Pool ID
+      Value: !Ref CognitoUserPool
+
+    CognitoClientId:
+      Description: Cognito User Pool Client ID
+      Value: !Ref CognitoUserPoolClient
+
+package:
+  individually: true
+  patterns:
+    - '!frontend/**'
+    - '!node_modules/**'
+    - '!.kiro/**'
+    - '!.vscode/**'
+    - '!**/*.test.ts'
+    - '!**/*.property.test.ts'
+    - '!**/*.spec.ts'
+    - '!coverage/**'
+    - '!.git/**'
+    - '!*.md'
+    - '!.env*'
+    - 'backend/src/**'
+    - 'backend/package.json'
+
+plugins:
+  - serverless-plugin-typescript
+
+custom:
+  serverlessPluginTypescript:
+    tsConfigFileLocation: './backend/tsconfig.json'

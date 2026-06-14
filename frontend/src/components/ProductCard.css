@@ -1,0 +1,119 @@
+/* ProductCard — Inline product recommendation card within the chat thread.
+ * Displays product name, price, recommendation reason, and add-to-cart action.
+ * Validates: Requirements 1.5, 6.3, 7.3 */
+
+.product-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin: 6px 0;
+  max-width: 100%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.15s;
+}
+
+.product-card:hover {
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.1);
+}
+
+/* Product image (optional) */
+.product-card__image {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #f3f4f6;
+}
+
+.product-card__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Info section — name, price, reason */
+.product-card__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.product-card__header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.product-card__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.product-card__price {
+  font-size: 13px;
+  font-weight: 700;
+  color: #4f46e5;
+  white-space: nowrap;
+}
+
+.product-card__reason {
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Add-to-cart button */
+.product-card__add-btn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.product-card__add-btn:hover:not(:disabled) {
+  background: #4338ca;
+  transform: scale(1.03);
+}
+
+.product-card__add-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.product-card__add-btn:disabled {
+  background: #a5b4fc;
+  cursor: not-allowed;
+}
+
+/* Responsive: on smaller panels, stack layout */
+@media (max-width: 320px) {
+  .product-card {
+    flex-wrap: wrap;
+  }
+
+  .product-card__add-btn {
+    width: 100%;
+    margin-top: 6px;
+  }
+}

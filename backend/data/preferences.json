@@ -1,0 +1,132 @@
+{
+  "USER#persona-budget-rahul": {
+    "PROFILE": {
+      "PK": "USER#persona-budget-rahul",
+      "SK": "PROFILE",
+      "dietaryFlags": [
+        "vegetarian"
+      ],
+      "createdAt": 1781419334151,
+      "updatedAt": 1781422242357
+    },
+    "BRAND#cooking-oil#Fortune": {
+      "PK": "USER#persona-budget-rahul",
+      "SK": "BRAND#cooking-oil#Fortune",
+      "score": 100,
+      "lastUpdated": 1781422242354
+    },
+    "BRAND#rice#India Gate": {
+      "PK": "USER#persona-budget-rahul",
+      "SK": "BRAND#rice#India Gate",
+      "score": 100,
+      "lastUpdated": 1781422242355
+    },
+    "BRAND#atta#Aashirvaad": {
+      "PK": "USER#persona-budget-rahul",
+      "SK": "BRAND#atta#Aashirvaad",
+      "score": 100,
+      "lastUpdated": 1781422242355
+    },
+    "BRAND#spices#Tata": {
+      "PK": "USER#persona-budget-rahul",
+      "SK": "BRAND#spices#Tata",
+      "score": 100,
+      "lastUpdated": 1781422242356
+    },
+    "BRAND#tea#Tata Tea": {
+      "PK": "USER#persona-budget-rahul",
+      "SK": "BRAND#tea#Tata Tea",
+      "score": 100,
+      "lastUpdated": 1781422242356
+    },
+    "BRAND#milk#Amul": {
+      "PK": "USER#persona-budget-rahul",
+      "SK": "BRAND#milk#Amul",
+      "score": 100,
+      "lastUpdated": 1781422242357
+    },
+    "BRAND#snacks#Parle": {
+      "PK": "USER#persona-budget-rahul",
+      "SK": "BRAND#snacks#Parle",
+      "score": 100,
+      "lastUpdated": 1781422242357
+    }
+  },
+  "USER#persona-health-priya": {
+    "PROFILE": {
+      "PK": "USER#persona-health-priya",
+      "SK": "PROFILE",
+      "dietaryFlags": [
+        "vegetarian",
+        "organic-only",
+        "low-sugar"
+      ],
+      "createdAt": 1781419334158,
+      "updatedAt": 1781422242362
+    },
+    "BRAND#cooking-oil#Patanjali Organic": {
+      "PK": "USER#persona-health-priya",
+      "SK": "BRAND#cooking-oil#Patanjali Organic",
+      "score": 100,
+      "lastUpdated": 1781422242360
+    },
+    "BRAND#rice#Organic Tattva": {
+      "PK": "USER#persona-health-priya",
+      "SK": "BRAND#rice#Organic Tattva",
+      "score": 100,
+      "lastUpdated": 1781422242360
+    },
+    "BRAND#atta#Patanjali Organic": {
+      "PK": "USER#persona-health-priya",
+      "SK": "BRAND#atta#Patanjali Organic",
+      "score": 100,
+      "lastUpdated": 1781422242361
+    },
+    "BRAND#honey#Dabur Organic": {
+      "PK": "USER#persona-health-priya",
+      "SK": "BRAND#honey#Dabur Organic",
+      "score": 100,
+      "lastUpdated": 1781422242361
+    },
+    "BRAND#tea#Organic India": {
+      "PK": "USER#persona-health-priya",
+      "SK": "BRAND#tea#Organic India",
+      "score": 100,
+      "lastUpdated": 1781422242361
+    },
+    "BRAND#milk#Amul Organic": {
+      "PK": "USER#persona-health-priya",
+      "SK": "BRAND#milk#Amul Organic",
+      "score": 100,
+      "lastUpdated": 1781422242362
+    },
+    "BRAND#snacks#Yoga Bar": {
+      "PK": "USER#persona-health-priya",
+      "SK": "BRAND#snacks#Yoga Bar",
+      "score": 100,
+      "lastUpdated": 1781422242362
+    }
+  },
+  "USER#test-user-1": {
+    "PROFILE": {
+      "PK": "USER#test-user-1",
+      "SK": "PROFILE",
+      "dietaryFlags": [
+        "vegetarian"
+      ],
+      "createdAt": 1781420465549,
+      "updatedAt": 1781420672705
+    }
+  },
+  "USER#local-user": {
+    "PROFILE": {
+      "PK": "USER#local-user",
+      "SK": "PROFILE",
+      "dietaryFlags": [
+        "vegetarian"
+      ],
+      "createdAt": 1781420465554,
+      "updatedAt": 1781420672706
+    }
+  }
+}
