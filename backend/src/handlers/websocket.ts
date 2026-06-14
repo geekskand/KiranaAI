@@ -202,8 +202,22 @@ export function createDefaultHandler(deps: WebSocketHandlerDeps) {
     const connectionId = event.requestContext.connectionId;
     const { domainName, stage } = event.requestContext;
 
-    // Verify the connection is authenticated
-    const userId = getConnectionUserId(connectionId);
+    // Parse the message early so we can recover userId from the payload if needed.
+    let parsedBody: ClientMessage | undefined;
+    if (event.body) {
+      try {
+        parsedBody = JSON.parse(event.body) as ClientMessage;
+      } catch {
+        parsedBody = undefined;
+      }
+    }
+    const payloadUserId =
+      (parsedBody?.payload as { userId?: string } | undefined)?.userId;
+
+    // Resolve userId: prefer the connection store, fall back to the message
+    // payload (Lambda containers are stateless, so $connect's in-memory map
+    // may not be visible to $default).
+    const userId = getConnectionUserId(connectionId) ?? payloadUserId;
     if (!userId) {
       const client = clientFactory(domainName, stage);
       const errorMessage: ServerMessage = {

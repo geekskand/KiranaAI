@@ -87,7 +87,7 @@ export function useKiranaSocket(persona: string) {
       ws.send(
         JSON.stringify({
           action: 'sendMessage',
-          payload: { sessionId: sessionRef.current, content: trimmed, timestamp: Date.now() },
+          payload: { sessionId: sessionRef.current, userId: persona, content: trimmed, timestamp: Date.now() },
         })
       );
     } else {
@@ -96,7 +96,7 @@ export function useKiranaSocket(persona: string) {
         { id: uid(), role: 'assistant', content: 'Assistant is offline right now. Try the Store tab to browse products.' },
       ]);
     }
-  }, []);
+  }, [persona]);
 
   return { status, messages, thinking, send };
 }
