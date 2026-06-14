@@ -147,6 +147,9 @@ export interface ProductCard {
   name: string;
   price: number;
   imageUrl?: string;
+  brand?: string;
+  category?: string;
+  originalPrice?: number;
   /** Reason for suggestion (basket completion / gap-fill) */
   reason?: string;
 }

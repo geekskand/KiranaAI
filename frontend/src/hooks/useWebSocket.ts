@@ -35,6 +35,9 @@ export interface ProductCard {
   name: string;
   price: number;
   imageUrl?: string;
+  brand?: string;
+  category?: string;
+  originalPrice?: number;
   reason?: string;
 }
 

@@ -117,7 +117,11 @@ export function ChatWidget() {
                 <div className="chat-widget-message-content">{msg.content}</div>
                 {/* Render product cards if present */}
                 {msg.products && msg.products.length > 0 && (
-                  <div className="chat-widget-products">
+                  <div
+                    className={`chat-widget-products ${
+                      msg.products.length > 1 ? 'chat-widget-products--multi' : ''
+                    }`}
+                  >
                     {msg.products.map((product) => (
                       <ProductCard
                         key={product.productId}
@@ -125,6 +129,9 @@ export function ChatWidget() {
                         name={product.name}
                         price={product.price}
                         imageUrl={product.imageUrl}
+                        brand={product.brand}
+                        category={product.category}
+                        originalPrice={product.originalPrice}
                         reason={product.reason}
                         onAddToCart={handleAddToCart}
                       />

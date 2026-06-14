@@ -235,5 +235,41 @@
   margin-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+
+/* Single product card takes a compact inline width */
+.chat-widget-products .product-card {
+  max-width: 200px;
+}
+
+/* Multiple products — horizontally scrollable carousel */
+.chat-widget-products--multi {
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 10px;
+  padding-bottom: 6px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chat-widget-products--multi .product-card {
+  flex: 0 0 150px;
+  width: 150px;
+  scroll-snap-align: start;
+}
+
+/* Slim scrollbar for the carousel */
+.chat-widget-products--multi::-webkit-scrollbar {
+  height: 6px;
+}
+
+.chat-widget-products--multi::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.chat-widget-products--multi::-webkit-scrollbar-track {
+  background: transparent;
 }

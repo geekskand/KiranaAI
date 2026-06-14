@@ -331,6 +331,9 @@ export function createDefaultHandler(deps: WebSocketHandlerDeps) {
 
 // ─── Exported Handler Instances ──────────────────────────────────────────────
 
+import { orchestrate } from './orchestrator.js';
+import { getRegistry } from '../providers/registry.js';
+
 /**
  * Default no-op auth validator for local dev (accepts any token as userId).
  * In production, this is replaced by Cognito JWT validation.
@@ -341,23 +344,66 @@ const defaultAuthValidator: AuthValidator = async (token: string) => {
 };
 
 /**
- * Default no-op orchestrator stub.
- * In production, this is replaced by the real orchestration pipeline.
+ * Real orchestrator that processes messages through the full pipeline.
  */
-const defaultOrchestrator: OrchestratorFn = async (_userId, sessionId, content) => {
-  return {
-    type: 'agentResponse' as const,
-    payload: {
-      content: `Echo: ${content}`,
-      sessionId,
-    },
-  };
+const realOrchestrator: OrchestratorFn = async (userId, sessionId, content) => {
+  try {
+    const registry = getRegistry();
+    const result = await orchestrate(
+      { sessionId, userId, message: content },
+      registry
+    );
+
+    // Build the response with products from agent + suggestions
+    const products = [
+      ...(result.response.products || []),
+      ...(result.basketSuggestions?.map((s) => ({
+        productId: s.product.productId,
+        name: s.product.name,
+        price: s.product.price,
+        brand: s.product.brand,
+        category: s.product.category,
+        imageUrl: s.product.imageUrl,
+        reason: s.reason,
+      })) || []),
+      ...(result.gapFillSuggestion
+        ? [{
+            productId: result.gapFillSuggestion.product.productId,
+            name: result.gapFillSuggestion.product.name,
+            price: result.gapFillSuggestion.product.price,
+            brand: result.gapFillSuggestion.product.brand,
+            category: result.gapFillSuggestion.product.category,
+            imageUrl: result.gapFillSuggestion.product.imageUrl,
+            reason: result.gapFillSuggestion.reason,
+          }]
+        : []),
+    ];
+
+    return {
+      type: 'agentResponse' as const,
+      payload: {
+        content: result.response.content,
+        products: products.length > 0 ? products : undefined,
+        sessionId: result.sessionId,
+        action: result.response.action,
+      },
+    };
+  } catch (error) {
+    console.error('[Orchestrator Error]', error);
+    return {
+      type: 'error' as const,
+      payload: {
+        code: 'INTERNAL_ERROR',
+        message: 'Failed to process your message. Please try again.',
+      },
+    };
+  }
 };
 
-// Default handler instances with stub implementations
+// Default handler instances with real orchestrator
 const defaultDeps: WebSocketHandlerDeps = {
   authValidator: defaultAuthValidator,
-  orchestrator: defaultOrchestrator,
+  orchestrator: realOrchestrator,
 };
 
 /**

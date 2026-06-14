@@ -16,22 +16,26 @@ function App() {
 
   // Generate auth token
   useEffect(() => {
-    // Try local Express auth endpoint first
-    fetch(`${API_BASE_URL}/auth/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: persona }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error('Auth endpoint unavailable');
-        return res.json();
+    const isLocal = WS_URL.includes('localhost');
+
+    if (isLocal) {
+      // Local dev: fetch JWT from Express auth endpoint
+      fetch(`${API_BASE_URL}/auth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: persona }),
       })
-      .then((data) => setToken(data.token))
-      .catch(() => {
-        // Fallback: use persona ID directly as token for deployed WebSocket
-        // The Lambda WebSocket handler accepts userId directly for dev stage
-        setToken(persona);
-      });
+        .then((res) => {
+          if (!res.ok) throw new Error('Auth endpoint unavailable');
+          return res.json();
+        })
+        .then((data) => setToken(data.token))
+        .catch(() => setToken(persona));
+    } else {
+      // Production: use persona ID directly as token
+      // The Lambda WebSocket auth validator accepts any non-empty string as userId
+      setToken(persona);
+    }
   }, [persona]);
 
   if (!token) {
@@ -53,6 +57,7 @@ function App() {
             <label>Demo Persona: </label>
             <select
               value={persona}
+              aria-label="Demo persona selector"
               onChange={(e) => {
                 setPersona(e.target.value);
                 setToken(null); // Force re-auth
