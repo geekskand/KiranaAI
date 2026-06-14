@@ -41,9 +41,9 @@ export interface CatalogCoOccurrenceRule {
   }[];
 }
 
-// ─── 50-SKU Product Catalog ──────────────────────────────────────────────────
+// ─── 50-SKU Curated Product Catalog ──────────────────────────────────────────
 
-export const catalog: CatalogProduct[] = [
+const curatedProducts: CatalogProduct[] = [
   // ─── Milk (Category: milk) ───────────────────────────────────────────────
   {
     productId: 'milk-001',
@@ -967,4 +967,126 @@ export const coOccurrenceRules: CatalogCoOccurrenceRule[] = [
       { productId: 'spice-001', name: 'Garam Masala', frequency: 0.65, reason: 'Essential paneer spice' },
     ],
   },
+];
+
+
+// ─── Image URL helper ────────────────────────────────────────────────────────
+
+/**
+ * Build a real product photo URL from loremflickr (keyword-based real photos).
+ * Deterministic per product via the `lock` seed, so the same product always
+ * shows the same image. No API key required.
+ */
+function imageFor(keyword: string, seed: number): string {
+  const kw = encodeURIComponent(keyword.replace(/[^a-z0-9 ]/gi, '').trim() || 'grocery');
+  return `https://loremflickr.com/320/320/${kw}?lock=${seed}`;
+}
+
+// ─── Catalog Generator (scales the catalog to ~500 SKUs) ─────────────────────
+
+interface CategoryTemplate {
+  category: string;
+  /** image search keyword */
+  imageKeyword: string;
+  nouns: string[];
+  brands: string[];
+  variants: string[];
+  sizes: string[];
+  priceRange: [number, number];
+  glutenFree: boolean;
+  defaultPalmOil: boolean;
+}
+
+const CATEGORY_TEMPLATES: CategoryTemplate[] = [
+  { category: 'milk', imageKeyword: 'milk carton', nouns: ['Toned Milk', 'Full Cream Milk', 'Double Toned Milk', 'A2 Milk', 'Slim Milk'], brands: ['Amul', 'Mother Dairy', 'Nestle', 'Organic Tattva', 'Country Delight', 'Heritage'], variants: ['', 'Fortified', 'Premium'], sizes: ['500ml', '1L'], priceRange: [26, 80], glutenFree: true, defaultPalmOil: false },
+  { category: 'dairy', imageKeyword: 'dairy products', nouns: ['Butter', 'Paneer', 'Cheese Slices', 'Dahi', 'Greek Yogurt', 'Ghee', 'Cream'], brands: ['Amul', 'Mother Dairy', 'Britannia', 'Epigamia', 'Gowardhan', 'Nandini'], variants: ['', 'Low Fat', 'Salted', 'Unsalted'], sizes: ['100g', '200g', '400g'], priceRange: [35, 320], glutenFree: true, defaultPalmOil: false },
+  { category: 'bread', imageKeyword: 'bread loaf', nouns: ['White Bread', 'Whole Wheat Bread', 'Multigrain Bread', 'Brown Bread', 'Pav', 'Bun'], brands: ['Britannia', 'Harvest Gold', 'English Oven', 'Modern', 'Patanjali'], variants: ['', 'High Fiber', 'No Maida'], sizes: ['400g', '500g'], priceRange: [30, 70], glutenFree: false, defaultPalmOil: true },
+  { category: 'cooking_oil', imageKeyword: 'cooking oil bottle', nouns: ['Sunflower Oil', 'Mustard Oil', 'Rice Bran Oil', 'Groundnut Oil', 'Olive Oil', 'Soybean Oil'], brands: ['Fortune', 'Saffola', 'Dhara', 'Patanjali', 'Figaro', 'Gemini'], variants: ['', 'Cold Pressed', 'Refined', 'Filtered'], sizes: ['500ml', '1L', '2L'], priceRange: [120, 420], glutenFree: true, defaultPalmOil: false },
+  { category: 'rice', imageKeyword: 'rice grains', nouns: ['Basmati Rice', 'Brown Rice', 'Sona Masoori Rice', 'Idli Rice', 'Jasmine Rice'], brands: ['India Gate', 'Daawat', 'Tata', 'Aashirvaad', 'Organic Tattva', 'Kohinoor'], variants: ['', 'Premium', 'Aged', 'Organic'], sizes: ['1kg', '5kg'], priceRange: [90, 520], glutenFree: true, defaultPalmOil: false },
+  { category: 'dal', imageKeyword: 'lentils dal', nouns: ['Toor Dal', 'Moong Dal', 'Chana Dal', 'Masoor Dal', 'Urad Dal', 'Rajma'], brands: ['Tata Sampann', 'Aashirvaad', 'Patanjali', 'Organic Tattva', '24 Mantra'], variants: ['', 'Unpolished', 'Organic'], sizes: ['500g', '1kg'], priceRange: [70, 220], glutenFree: true, defaultPalmOil: false },
+  { category: 'vegetables', imageKeyword: 'fresh vegetables', nouns: ['Tomatoes', 'Onions', 'Potatoes', 'Spinach', 'Cauliflower', 'Carrots', 'Green Peas', 'Capsicum'], brands: ['Local Farm', 'Organic Tattva', 'Fresho', 'Simpli Namdhari'], variants: ['', 'Organic', 'Hydroponic'], sizes: ['250g', '500g', '1kg'], priceRange: [20, 120], glutenFree: true, defaultPalmOil: false },
+  { category: 'fruits', imageKeyword: 'fresh fruits', nouns: ['Apples', 'Bananas', 'Oranges', 'Grapes', 'Pomegranate', 'Mangoes', 'Papaya'], brands: ['Local Farm', 'Fresho', 'Organic Tattva', 'Simpli Namdhari'], variants: ['', 'Premium', 'Organic'], sizes: ['500g', '1kg'], priceRange: [40, 260], glutenFree: true, defaultPalmOil: false },
+  { category: 'chocolate', imageKeyword: 'chocolate bar', nouns: ['Dark Chocolate', 'Milk Chocolate', 'Hazelnut Chocolate', 'Fruit & Nut Bar', 'Wafer Bar'], brands: ['Cadbury', 'Nestle', 'Amul', 'Lindt', 'Bournville', 'Paul & Mike'], variants: ['', 'Sugar-Free', '70% Cocoa', '99% Cocoa'], sizes: ['40g', '100g', '150g'], priceRange: [40, 320], glutenFree: true, defaultPalmOil: true },
+  { category: 'snacks', imageKeyword: 'snacks chips', nouns: ['Potato Chips', 'Aloo Bhujia', 'Mixture', 'Multigrain Chips', 'Nachos', 'Popcorn'], brands: ['Lays', "Haldiram's", 'Bingo', 'Yoga Bar', 'Too Yumm', 'Kurkure'], variants: ['', 'Baked', 'No Palm Oil', 'Masala'], sizes: ['50g', '85g', '150g'], priceRange: [20, 110], glutenFree: false, defaultPalmOil: true },
+  { category: 'beverages', imageKeyword: 'tea coffee', nouns: ['Green Tea', 'Black Tea', 'Instant Coffee', 'Filter Coffee', 'Iced Tea', 'Cold Brew'], brands: ['Tata Tea', 'Nescafe', 'Organic India', 'Bru', 'Red Label', 'Society'], variants: ['', 'Premium', 'Decaf', 'Tulsi'], sizes: ['100g', '250g', '500g'], priceRange: [60, 420], glutenFree: true, defaultPalmOil: false },
+  { category: 'personal_care', imageKeyword: 'soap shampoo', nouns: ['Shampoo', 'Soap Bar', 'Body Wash', 'Toothpaste', 'Face Wash', 'Hand Wash'], brands: ['Dove', 'Patanjali', 'Himalaya', 'Mamaearth', 'Dettol', 'Colgate'], variants: ['', 'Herbal', 'Sulfate-Free', 'Sensitive'], sizes: ['100g', '150ml', '250ml'], priceRange: [40, 380], glutenFree: true, defaultPalmOil: true },
+  { category: 'cleaning', imageKeyword: 'cleaning supplies', nouns: ['Dishwash Liquid', 'Detergent Powder', 'Floor Cleaner', 'Toilet Cleaner', 'Glass Cleaner'], brands: ['Vim', 'Surf Excel', 'Harpic', 'Lizol', 'Herbal Strategi', 'Ariel'], variants: ['', 'Lemon', 'Eco-Friendly', 'Concentrated'], sizes: ['500ml', '1L', '1kg'], priceRange: [60, 350], glutenFree: true, defaultPalmOil: true },
+  { category: 'spices', imageKeyword: 'indian spices', nouns: ['Garam Masala', 'Turmeric Powder', 'Chilli Powder', 'Coriander Powder', 'Chana Masala', 'Cumin Seeds'], brands: ['MDH', 'Everest', 'Catch', 'Tata Sampann', 'Organic Tattva', '24 Mantra'], variants: ['', 'Organic', 'Premium'], sizes: ['50g', '100g', '200g'], priceRange: [40, 180], glutenFree: true, defaultPalmOil: false },
+  { category: 'flour', imageKeyword: 'wheat flour', nouns: ['Whole Wheat Atta', 'Multigrain Atta', 'Maida', 'Besan', 'Rava', 'Ragi Flour'], brands: ['Aashirvaad', 'Pillsbury', 'Patanjali', 'Fortune', '24 Mantra'], variants: ['', 'Multigrain', 'High Fiber', 'Organic'], sizes: ['1kg', '5kg'], priceRange: [50, 360], glutenFree: false, defaultPalmOil: false },
+  { category: 'sugar', imageKeyword: 'sugar honey', nouns: ['White Sugar', 'Brown Sugar', 'Honey', 'Jaggery', 'Stevia', 'Date Syrup'], brands: ['Tata', 'Dabur', 'Madhusudan', 'Patanjali', 'Organic India'], variants: ['', 'Raw', 'Organic', 'Natural'], sizes: ['250g', '500g', '1kg'], priceRange: [40, 320], glutenFree: true, defaultPalmOil: false },
+  { category: 'staples', imageKeyword: 'grocery staples', nouns: ['Iodized Salt', 'Mixed Fruit Jam', 'Instant Noodles', 'Tomato Ketchup', 'Pasta', 'Vermicelli'], brands: ['Tata', 'Kissan', 'Maggi', 'Nestle', 'Del Monte', 'Sunfeast'], variants: ['', 'No Onion Garlic', 'Whole Wheat'], sizes: ['200g', '500g', '1kg'], priceRange: [20, 160], glutenFree: false, defaultPalmOil: true },
+  { category: 'breakfast', imageKeyword: 'breakfast cereal', nouns: ['Corn Flakes', 'Muesli', 'Oats', 'Granola', 'Poha', 'Upma Mix'], brands: ['Kelloggs', 'Bagrrys', 'Quaker', 'Yoga Bar', 'True Elements'], variants: ['', 'No Added Sugar', 'Fruit & Nut', 'High Protein'], sizes: ['250g', '400g', '1kg'], priceRange: [80, 460], glutenFree: false, defaultPalmOil: false },
+  { category: 'baby_care', imageKeyword: 'baby products', nouns: ['Baby Diapers', 'Baby Wipes', 'Baby Lotion', 'Baby Food', 'Baby Shampoo'], brands: ['Pampers', 'Huggies', 'Johnsons', 'Mamaearth', 'Cerelac'], variants: ['', 'Sensitive', 'Organic'], sizes: ['Small', 'Medium', 'Large'], priceRange: [120, 720], glutenFree: true, defaultPalmOil: false },
+  { category: 'pet_care', imageKeyword: 'pet food', nouns: ['Dog Food', 'Cat Food', 'Dog Treats', 'Cat Litter'], brands: ['Pedigree', 'Whiskas', 'Drools', 'Royal Canin'], variants: ['', 'Chicken', 'Adult', 'Puppy'], sizes: ['400g', '1kg', '3kg'], priceRange: [90, 1200], glutenFree: true, defaultPalmOil: false },
+];
+
+const QUALITY_TIERS: Array<'budget' | 'mid' | 'premium'> = ['budget', 'mid', 'premium'];
+
+function generateProducts(target: number): CatalogProduct[] {
+  const generated: CatalogProduct[] = [];
+  let seed = 1000;
+
+  outer: while (generated.length < target) {
+    for (const tpl of CATEGORY_TEMPLATES) {
+      for (const noun of tpl.nouns) {
+        for (const brand of tpl.brands) {
+          if (generated.length >= target) break outer;
+
+          const variant = tpl.variants[seed % tpl.variants.length];
+          const size = tpl.sizes[seed % tpl.sizes.length];
+          const tier = QUALITY_TIERS[seed % QUALITY_TIERS.length];
+
+          const namePieces = [brand, variant, noun, size].filter(Boolean);
+          const name = namePieces.join(' ').replace(/\s+/g, ' ').trim();
+
+          // Price scaled by tier within the category range
+          const [min, max] = tpl.priceRange;
+          const tierFactor = tier === 'budget' ? 0.15 : tier === 'mid' ? 0.5 : 0.85;
+          const price = Math.round(min + (max - min) * tierFactor);
+
+          const isOrganic = /organic/i.test(variant) || /organic/i.test(brand) || brand === '24 Mantra';
+          const isLowSugar = /sugar-free|no added sugar|stevia/i.test(`${variant} ${noun}`) || tpl.category === 'spices' || tpl.category === 'dal';
+          const containsPalmOil = tpl.defaultPalmOil && !/no palm oil|baked/i.test(variant);
+
+          const dietaryLabels: string[] = ['vegetarian'];
+          if (isOrganic) dietaryLabels.push('organic');
+          if (tpl.glutenFree) dietaryLabels.push('gluten-free');
+          if (isLowSugar) dietaryLabels.push('low-sugar');
+
+          generated.push({
+            productId: `gen-${tpl.category}-${seed}`,
+            name,
+            brand,
+            category: tpl.category,
+            price,
+            labels: [noun.toLowerCase(), tier, ...(variant ? [variant.toLowerCase()] : [])],
+            dietaryLabels,
+            isOrganic,
+            isLowSugar,
+            isGlutenFree: tpl.glutenFree,
+            containsPalmOil,
+            qualityTier: tier,
+            inStock: seed % 17 !== 0, // ~6% out of stock for realism
+            imageUrl: imageFor(`${tpl.imageKeyword} ${noun}`, seed),
+          });
+          seed++;
+        }
+      }
+    }
+  }
+  return generated;
+}
+
+// ─── Final Catalog Export (~500 SKUs) ────────────────────────────────────────
+
+/** Curated products get real images too (keyed off their category). */
+const curatedWithImages: CatalogProduct[] = curatedProducts.map((p, i) => ({
+  ...p,
+  imageUrl: p.imageUrl ?? imageFor(`${p.category} ${p.name}`, 1 + i),
+}));
+
+/** The full catalog: 50 curated + generated to reach ~500 SKUs. */
+export const catalog: CatalogProduct[] = [
+  ...curatedWithImages,
+  ...generateProducts(450),
 ];

@@ -53,6 +53,7 @@ function toCard(p: CatalogProduct, reason?: string): ProductCard {
     price: p.price,
     brand: p.brand,
     category: p.category,
+    imageUrl: p.imageUrl,
     reason,
   };
 }
