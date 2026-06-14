@@ -72,28 +72,28 @@ provider:
 
 functions:
   wsConnect:
-    handler: backend/src/handlers/websocket.connect
+    handler: backend/dist/handlers/websocket.connect
     events:
       - websocket:
           route: $connect
     description: Handles WebSocket connection establishment and auth
 
   wsDisconnect:
-    handler: backend/src/handlers/websocket.disconnect
+    handler: backend/dist/handlers/websocket.disconnect
     events:
       - websocket:
           route: $disconnect
     description: Handles WebSocket disconnection and session cleanup
 
   wsDefault:
-    handler: backend/src/handlers/websocket.default
+    handler: backend/dist/handlers/websocket.default
     events:
       - websocket:
           route: $default
     description: Routes incoming WebSocket messages to the orchestrator
 
   orchestrator:
-    handler: backend/src/handlers/orchestrator.handler
+    handler: backend/dist/handlers/orchestrator.handler
     timeout: 30
     memorySize: 512
     description: Main orchestration handler for conversational agent pipeline
@@ -220,10 +220,13 @@ resources:
       Value: !Ref CognitoUserPoolClient
 
 package:
-  individually: true
+  individually: false
   patterns:
+    - 'backend/dist/**'
+    - 'backend/package.json'
+    - 'backend/data/**'
+    - 'backend/node_modules/**'
     - '!frontend/**'
-    - '!node_modules/**'
     - '!.kiro/**'
     - '!.vscode/**'
     - '!**/*.test.ts'
@@ -233,12 +236,10 @@ package:
     - '!.git/**'
     - '!*.md'
     - '!.env*'
-    - 'backend/src/**'
-    - 'backend/package.json'
+    - '!backend/src/**'
 
-plugins:
-  - serverless-plugin-typescript
+#plugins:
+#  - serverless-plugin-typescript
 
 custom:
-  serverlessPluginTypescript:
-    tsConfigFileLocation: './backend/tsconfig.json'
+  # No TS plugin needed — we build before deploy

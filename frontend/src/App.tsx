@@ -2,20 +2,37 @@ import { useState, useEffect } from 'react';
 import { ChatWidget } from './components/ChatWidget';
 import { ChatProvider } from './context/ChatContext';
 
+// ─── Configuration ───────────────────────────────────────────────────────────
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000/ws';
+const DEFAULT_PERSONA = import.meta.env.VITE_DEFAULT_PERSONA || 'persona-budget-rahul';
+
+// ─── App ─────────────────────────────────────────────────────────────────────
+
 function App() {
   const [token, setToken] = useState<string | null>(null);
+  const [persona, setPersona] = useState(DEFAULT_PERSONA);
 
-  // Auto-generate a local dev token on startup
+  // Generate auth token
   useEffect(() => {
-    fetch('http://localhost:3000/auth/token', {
+    // Try local Express auth endpoint first
+    fetch(`${API_BASE_URL}/auth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: 'persona-budget-rahul' }),
+      body: JSON.stringify({ userId: persona }),
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Auth endpoint unavailable');
+        return res.json();
+      })
       .then((data) => setToken(data.token))
-      .catch(() => setToken('demo-fallback-token'));
-  }, []);
+      .catch(() => {
+        // Fallback: use persona ID directly as token for deployed WebSocket
+        // The Lambda WebSocket handler accepts userId directly for dev stage
+        setToken(persona);
+      });
+  }, [persona]);
 
   if (!token) {
     return (
@@ -27,12 +44,48 @@ function App() {
   }
 
   return (
-    <ChatProvider wsUrl="ws://localhost:3000/ws" token={token}>
+    <ChatProvider wsUrl={WS_URL} token={token}>
       <div className="app">
-        <h1>KiranaAI</h1>
-        <p>Conversational commerce agent for quick-commerce platforms.</p>
+        <header className="app-header">
+          <h1>🛒 KiranaAI</h1>
+          <p>Your neighborhood shopkeeper, reimagined for the digital age.</p>
+          <div className="persona-switcher">
+            <label>Demo Persona: </label>
+            <select
+              value={persona}
+              onChange={(e) => {
+                setPersona(e.target.value);
+                setToken(null); // Force re-auth
+              }}
+            >
+              <option value="persona-budget-rahul">Rahul (Budget Optimizer)</option>
+              <option value="persona-health-priya">Priya (Health-Conscious)</option>
+            </select>
+          </div>
+        </header>
 
-        {/* Chat widget renders as a fixed overlay — does not obstruct page content */}
+        <main className="app-demo">
+          <div className="demo-card">
+            <h3>💬 Try saying:</h3>
+            <ul>
+              <li><code>find me some milk</code></li>
+              <li><code>add rice to cart</code></li>
+              <li><code>show me bread options</code></li>
+              <li><code>find a substitute for butter</code></li>
+            </ul>
+          </div>
+          <div className="demo-card">
+            <h3>🎯 What KiranaAI does:</h3>
+            <ul>
+              <li>Remembers your brand preferences</li>
+              <li>Respects dietary restrictions</li>
+              <li>Suggests basket completions</li>
+              <li>Helps you reach free delivery</li>
+            </ul>
+          </div>
+        </main>
+
+        {/* Chat widget renders as a fixed overlay */}
         <ChatWidget />
       </div>
     </ChatProvider>
