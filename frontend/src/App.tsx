@@ -32,7 +32,7 @@ function App() {
           {view === 'checkout' && <Checkout onNavigate={navigate} />}
         </main>
         <footer className="app-footer">
-          KiranaAI · Intent Intelligence Commerce · Demo
+          Amazon Now · Powered by Sanaya AI · Demo
         </footer>
       </div>
     </CartProvider>

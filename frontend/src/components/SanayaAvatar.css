@@ -1,0 +1,57 @@
+.sanaya {
+  display: inline-block;
+  line-height: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.sanaya__svg {
+  display: block;
+}
+
+/* Gentle continuous head bob */
+.sanaya__bob {
+  transform-origin: 50px 60px;
+  animation: sanaya-bob 4s ease-in-out infinite;
+}
+
+@keyframes sanaya-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-0.6px) rotate(-1.2deg); }
+  75% { transform: translateY(0.6px) rotate(1.2deg); }
+}
+
+/* Blinking eyes */
+.sanaya__eyes {
+  transform-origin: 50px 50px;
+  animation: sanaya-blink 4.5s infinite;
+}
+
+@keyframes sanaya-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95%, 97% { transform: scaleY(0.1); }
+}
+
+/* Mouth idle */
+.sanaya__mouth {
+  transform-origin: 50px 62px;
+  transition: transform 0.2s ease;
+}
+
+/* Speaking — animated mouth + livelier bob */
+.sanaya--speaking .sanaya__mouth {
+  animation: sanaya-talk 0.45s ease-in-out infinite;
+}
+
+.sanaya--speaking .sanaya__bob {
+  animation: sanaya-bob 2s ease-in-out infinite;
+}
+
+@keyframes sanaya-talk {
+  0%, 100% { transform: scaleY(0.6); }
+  50% { transform: scaleY(1.3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sanaya__bob, .sanaya__eyes, .sanaya--speaking .sanaya__mouth { animation: none; }
+}

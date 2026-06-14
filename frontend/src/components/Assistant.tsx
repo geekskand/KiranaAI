@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useKiranaSocket, type AssistantProduct } from '../hooks/useKiranaSocket';
 import { useCart } from '../store/CartContext';
 import { PRODUCTS, categoryIcon, type Product } from '../data/catalog';
+import { SanayaAvatar } from './SanayaAvatar';
 import './Assistant.css';
 
 const PERSONAS = [
@@ -79,9 +80,12 @@ export function Assistant() {
   return (
     <div className="assistant">
       <div className="assistant__head">
-        <div>
-          <h2>🧠 Ask KiranaAI</h2>
-          <p>Tell me what you need — I'll pick the right product for you.</p>
+        <div className="assistant__intro">
+          <SanayaAvatar size={52} speaking={thinking} />
+          <div>
+            <h2>Hi, I'm Sanaya 👋</h2>
+            <p>Your Amazon Now shopping companion — tell me what you need.</p>
+          </div>
         </div>
         <div className="assistant__persona">
           <label>Shopping as</label>
@@ -97,7 +101,7 @@ export function Assistant() {
       <div className="assistant__thread">
         {messages.length === 0 && (
           <div className="assistant__empty">
-            <p>Try asking:</p>
+            <p>I can find the right product, suggest healthier swaps, and complete your basket. Try:</p>
             <div className="assistant__suggest">
               {SUGGESTIONS.map((s) => (
                 <button key={s} onClick={() => send(s)}>{s}</button>
@@ -107,17 +111,27 @@ export function Assistant() {
         )}
         {messages.map((m) => (
           <div key={m.id} className={`abubble abubble--${m.role}`}>
-            <div className="abubble__text">{m.content}</div>
-            {m.products && m.products.length > 0 && (
-              <div className="abubble__products">
-                {m.products.map((p) => (
-                  <ProductChip key={p.productId} p={p} />
-                ))}
-              </div>
+            {m.role === 'assistant' && (
+              <span className="abubble__avatar"><SanayaAvatar size={28} /></span>
             )}
+            <div className="abubble__col">
+              <div className="abubble__text">{m.content}</div>
+              {m.products && m.products.length > 0 && (
+                <div className="abubble__products">
+                  {m.products.map((p) => (
+                    <ProductChip key={p.productId} p={p} />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         ))}
-        {thinking && <div className="abubble abubble--assistant"><div className="abubble__text typing">KiranaAI is thinking…</div></div>}
+        {thinking && (
+          <div className="abubble abubble--assistant">
+            <span className="abubble__avatar"><SanayaAvatar size={28} speaking /></span>
+            <div className="abubble__col"><div className="abubble__text typing">Sanaya is thinking…</div></div>
+          </div>
+        )}
         <div ref={endRef} />
       </div>
 
@@ -126,7 +140,7 @@ export function Assistant() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
-          placeholder={status === 'connected' ? 'e.g. "milk" or "healthy snacks"' : 'Connecting to KiranaAI…'}
+          placeholder={status === 'connected' ? 'Ask Sanaya — e.g. "milk" or "healthy snacks"' : 'Connecting to Sanaya…'}
         />
         <button onClick={submit} disabled={!input.trim()}>Send</button>
       </div>

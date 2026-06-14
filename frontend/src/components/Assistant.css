@@ -22,6 +22,12 @@
 .assistant__head h2 { margin: 0; font-size: 17px; }
 .assistant__head p { margin: 2px 0 0; font-size: 12px; opacity: 0.9; }
 
+.assistant__intro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .assistant__persona {
   display: flex;
   align-items: center;
@@ -76,9 +82,12 @@
 }
 .assistant__suggest button:hover { background: #eef2ff; border-color: #4f46e5; }
 
-.abubble { max-width: 92%; }
+.abubble { max-width: 92%; display: flex; gap: 8px; }
 .abubble--user { align-self: flex-end; }
 .abubble--assistant { align-self: flex-start; }
+
+.abubble__avatar { flex-shrink: 0; align-self: flex-start; }
+.abubble__col { display: flex; flex-direction: column; min-width: 0; }
 
 .abubble__text {
   padding: 10px 14px;

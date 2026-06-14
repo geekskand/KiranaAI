@@ -9,8 +9,8 @@ export function Navbar({ view, onNavigate }: { view: View; onNavigate: (v: View)
   return (
     <header className="nav">
       <button className="nav__brand" onClick={() => onNavigate('home')}>
-        <span className="nav__logo">🛒</span>
-        <span className="nav__title">KiranaAI</span>
+        <span className="nav__logo">⚡</span>
+        <span className="nav__title">amazon <em>now</em></span>
       </button>
 
       <nav className="nav__links">

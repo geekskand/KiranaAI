@@ -11,11 +11,11 @@ export function Home({ onNavigate, onPickCategory }: { onNavigate: (v: View) => 
       <section className="hero">
         <div className="hero__content">
           <h1>
-            Your neighbourhood <span>kirana</span>, reimagined.
+            Groceries in minutes, <span>with a human touch.</span>
           </h1>
           <p>
-            KiranaAI knows what you like, picks the right product, and completes your basket —
-            so you decide less and get more.
+            Meet <b>Sanaya</b> — your Amazon Now shopping companion. She knows what you like,
+            picks the right product, and completes your basket, so you decide less and get more.
           </p>
           <div className="hero__actions">
             <button className="btn btn--primary" onClick={() => onNavigate('store')}>
@@ -46,8 +46,8 @@ export function Home({ onNavigate, onPickCategory }: { onNavigate: (v: View) => 
       <section className="home__features">
         <div className="feat">
           <span>🧠</span>
-          <h3>Intent Intelligence</h3>
-          <p>Understands what you mean, not just what you type.</p>
+          <h3>Sanaya understands you</h3>
+          <p>She gets what you mean, not just what you type.</p>
         </div>
         <div className="feat">
           <span>🎯</span>
