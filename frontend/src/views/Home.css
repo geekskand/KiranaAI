@@ -130,3 +130,7 @@
   .hero__art { display: none; }
   .hero__content h1 { font-size: 26px; }
 }
+
+.home__assistant {
+  margin-top: 28px;
+}

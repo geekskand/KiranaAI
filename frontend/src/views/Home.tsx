@@ -1,5 +1,6 @@
 import type { View } from '../components/Navbar';
-import { CATEGORIES, CATEGORY_META, categoryIcon, categoryLabel, PRODUCTS } from '../data/catalog';
+import { CATEGORIES, categoryIcon, categoryLabel, PRODUCTS } from '../data/catalog';
+import { Assistant } from '../components/Assistant';
 import './Home.css';
 
 export function Home({ onNavigate, onPickCategory }: { onNavigate: (v: View) => void; onPickCategory: (c: string) => void }) {
@@ -24,6 +25,10 @@ export function Home({ onNavigate, onPickCategory }: { onNavigate: (v: View) => 
           </div>
         </div>
         <div className="hero__art">🛒🥛🍫🥖🍎</div>
+      </section>
+
+      <section className="home__assistant">
+        <Assistant />
       </section>
 
       <section className="home__section">
