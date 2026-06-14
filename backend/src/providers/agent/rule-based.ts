@@ -19,6 +19,7 @@ import type {
   AgentResponse,
   ProductCard,
 } from '../../models/index.js';
+import { catalog, type CatalogProduct } from '../../seed/catalog.js';
 
 // ─── Intent Types ────────────────────────────────────────────────────────────
 
@@ -65,7 +66,7 @@ const INTENT_PATTERNS: IntentPattern[] = [
   {
     type: 'search',
     patterns: [
-      /\b(?:find|show me|looking for|search for|i need|i want|where is|do you have)\b/i,
+      /\b(?:find|show me|show|looking for|search for|search|i need|need|i want|want|where is|do you have|get me some|gimme|give me)\b/i,
     ],
     baseConfidence: 0.85,
   },
@@ -122,7 +123,7 @@ function extractEntity(message: string, intentType: IntentType): string | undefi
   switch (intentType) {
     case 'search':
       cleaned = cleaned.replace(
-        /\b(?:find|show me|looking for|search for|i need|i want|where is|do you have|any)\b/i,
+        /\b(?:find|show me|show|looking for|search for|search|i need|need|i want|want|where is|do you have|get me some|gimme|give me|any|some)\b/gi,
         ''
       );
       break;
@@ -181,6 +182,46 @@ export function detectIntent(message: string): DetectedIntent {
   }
 
   return { type: 'unknown', confidence: 0.1 };
+}
+
+/**
+ * Convert a catalog product into a ProductCard for the UI.
+ */
+function toProductCard(p: CatalogProduct, reason?: string): ProductCard {
+  return {
+    productId: p.productId,
+    name: p.name,
+    price: p.price,
+    brand: p.brand,
+    category: p.category,
+    reason,
+  };
+}
+
+/**
+ * Search the real catalog for products matching any token in the message.
+ * Matches against product name, brand, category, and labels.
+ */
+export function searchCatalog(message: string, limit = 4): CatalogProduct[] {
+  const lower = message.toLowerCase();
+  const tokens = lower.split(/[^a-z0-9]+/).filter((t) => t.length >= 3);
+  if (tokens.length === 0) return [];
+
+  const scored = catalog
+    .map((p) => {
+      const hay = `${p.name} ${p.brand} ${p.category} ${(p.labels || []).join(' ')}`.toLowerCase();
+      const categoryWords = p.category.replace(/[_-]/g, ' ');
+      let score = 0;
+      for (const t of tokens) {
+        if (categoryWords.includes(t)) score += 3;
+        else if (hay.includes(t)) score += 1;
+      }
+      return { p, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score || a.p.price - b.p.price);
+
+  return scored.slice(0, limit).map((x) => x.p);
 }
 
 /**
@@ -250,7 +291,7 @@ export class RuleBasedAgentProvider implements AgentProvider {
 
       case 'unknown':
       default:
-        return this.handleUnknown();
+        return this.handleUnknown(message);
     }
   }
 
@@ -272,6 +313,24 @@ export class RuleBasedAgentProvider implements AgentProvider {
 
   private handleSearch(intent: DetectedIntent, _context: AgentContext): AgentResponse {
     const query = intent.entity || 'products';
+
+    // Try the real catalog first
+    const matches = searchCatalog(intent.entity || query);
+    if (matches.length > 0) {
+      const products = matches.map((p, i) =>
+        toProductCard(
+          p,
+          i === 0 ? 'Top match for your search' : `${p.brand} • ${p.category.replace(/[_-]/g, ' ')}`
+        )
+      );
+      return {
+        content: `Here ${products.length === 1 ? 'is an option' : `are ${products.length} options`} for "${query}". Want me to add any to your cart?`,
+        products,
+        action: 'suggest',
+      };
+    }
+
+    // Fallback to a generated card if nothing matched
     const card = this.deterministic
       ? generateDeterministicProductCard(query)
       : generateProductCard(query);
@@ -290,6 +349,17 @@ export class RuleBasedAgentProvider implements AgentProvider {
       // No specific product identified — ask which product
       return {
         content: "Which product would you like me to add to your cart?",
+      };
+    }
+
+    // Try to match a real catalog product
+    const matches = searchCatalog(intent.entity);
+    if (matches.length > 0) {
+      const best = matches[0];
+      return {
+        content: `Added ${best.name} (₹${best.price}) to your cart.`,
+        products: [toProductCard(best, 'Added to your cart')],
+        action: 'auto-added',
       };
     }
 
@@ -312,6 +382,24 @@ export class RuleBasedAgentProvider implements AgentProvider {
       return {
         content: "Which product would you like me to find a substitute for?",
       };
+    }
+
+    // Find products in the same category as alternatives
+    const matches = searchCatalog(intent.entity);
+    if (matches.length > 0) {
+      const category = matches[0].category;
+      const alternatives = catalog
+        .filter((p) => p.category === category && p.productId !== matches[0].productId)
+        .slice(0, 3)
+        .map((p) => toProductCard(p, `Alternative to ${productName}`));
+
+      if (alternatives.length > 0) {
+        return {
+          content: `Here ${alternatives.length === 1 ? 'is an alternative' : 'are some alternatives'} for ${productName}. Add one to your cart?`,
+          products: alternatives,
+          action: 'suggest',
+        };
+      }
     }
 
     const substitute = this.deterministic
@@ -351,7 +439,23 @@ export class RuleBasedAgentProvider implements AgentProvider {
     };
   }
 
-  private handleUnknown(): AgentResponse {
+  private handleUnknown(message: string): AgentResponse {
+    // Before giving up, check if the message mentions any catalog product/category
+    const matches = searchCatalog(message);
+    if (matches.length > 0) {
+      const products = matches.map((p, i) =>
+        toProductCard(
+          p,
+          i === 0 ? 'Top match' : `${p.brand} • ${p.category.replace(/[_-]/g, ' ')}`
+        )
+      );
+      return {
+        content: `Here ${products.length === 1 ? 'is an option' : `are ${products.length} options`} I found. Want me to add any to your cart?`,
+        products,
+        action: 'suggest',
+      };
+    }
+
     return {
       content: FALLBACK_RESPONSE,
     };
