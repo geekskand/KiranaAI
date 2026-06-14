@@ -29,7 +29,6 @@
 
 import type {
   SessionContext,
-  AgentContext,
   AgentResponse,
   Message,
   ProductCard,
@@ -51,10 +50,8 @@ import {
   generateOnboardingResponse,
   collectOnboardingPreferences,
 } from '../agent/onboarding.js';
-import { dispatchTool, type ToolContext } from '../agent/tools.js';
-import { getBasketCompletions } from '../engines/basket-completion.js';
-import { getGapFillSuggestion } from '../engines/gap-fill.js';
 import { catalog as seedCatalog } from '../seed/catalog.js';
+import { runIntentEngine } from '../intent/index.js';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -87,9 +84,6 @@ export interface OrchestratorOutput {
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-
-/** Minimum cart items required before triggering basket completion */
-const BASKET_COMPLETION_MIN_CART_ITEMS = 1;
 
 /** Maximum basket completion suggestions before stopping */
 const MAX_BASKET_SUGGESTIONS = 2;
@@ -219,28 +213,6 @@ export function createNewSession(sessionId: string, userId: string): SessionCont
   };
 }
 
-/**
- * Builds AgentContext from a SessionContext for agent invocation.
- */
-function buildAgentContext(session: SessionContext): AgentContext {
-  return {
-    sessionId: session.sessionId,
-    userId: session.userId,
-    conversationHistory: session.conversationHistory,
-    cartState: session.cartState,
-  };
-}
-
-/**
- * Calculate the total cart value.
- */
-function calculateCartTotal(session: SessionContext): number {
-  return session.cartState.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-}
-
 // ─── Registry-Based Orchestration (Main Entry Point) ─────────────────────────
 
 /**
@@ -296,7 +268,7 @@ export async function handleMessage(
   deps: OrchestratorDeps
 ): Promise<OrchestratorOutput> {
   const { sessionId, userId, message } = input;
-  const { sessionStore, preferenceStore, agentProvider, catalog } = deps;
+  const { sessionStore, preferenceStore, catalog } = deps;
   const freeDeliveryThreshold = deps.freeDeliveryThreshold ?? getConfig().freeDeliveryThreshold;
 
   // 1. Load session context from SessionStore (or create new)
@@ -320,9 +292,16 @@ export async function handleMessage(
     return onboardingResult;
   }
 
-  // 4. Invoke agent with context + message
-  const agentContext = buildAgentContext(session);
-  let agentResponse = await agentProvider.invoke(agentContext, message);
+  // 4. Run the Intent Engine (the brain): understand → retrieve → fuse → decide.
+  const engineResult = await runIntentEngine({
+    userId,
+    sessionId,
+    message,
+    profile: userProfile,
+    cart: session.cartState,
+    freeDeliveryThreshold,
+    preferenceStore,
+  });
 
   // Record the user message in conversation history
   const userMessage: Message = {
@@ -332,52 +311,44 @@ export async function handleMessage(
   };
   session.conversationHistory.push(userMessage);
 
-  // 5. Process agent response — dispatch tool calls if present
-  if (agentResponse.toolCalls && agentResponse.toolCalls.length > 0) {
-    // Resolve cache provider for tool dispatch (gap-fill, etc.)
-    const cacheProvider = await getRegistry().cache;
-    const toolContext: ToolContext = {
-      preferenceStore,
-      sessionStore,
-      cache: cacheProvider,
-      catalog,
-    };
+  const { decision, autoAdd, predictions } = engineResult;
 
-    for (const toolCall of agentResponse.toolCalls) {
-      const result = await dispatchTool(
-        toolCall.tool,
-        toolCall.input,
-        toolContext
-      );
-      toolCall.output = result.data as Record<string, unknown>;
-
-      // Record in reasoning history
-      session.agentReasoningHistory.push({
-        tool: toolCall.tool,
-        input: toolCall.input,
-        output: toolCall.output,
-        timestamp: Date.now(),
+  // 5. Apply ACT auto-add to the session cart.
+  if (autoAdd) {
+    const existing = session.cartState.find((i) => i.productId === autoAdd.productId);
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      session.cartState.push({
+        productId: autoAdd.productId,
+        name: autoAdd.name,
+        price: autoAdd.price,
+        quantity: 1,
       });
     }
-
-    // Re-read session state in case update_cart modified it
-    const updatedSession = await sessionStore.getSession(sessionId);
-    if (updatedSession) {
-      session.cartState = updatedSession.cartState;
-    }
   }
 
-  // 8. Enforce dietary restrictions on product recommendations in agent response
-  if (agentResponse.products && agentResponse.products.length > 0) {
-    agentResponse = {
-      ...agentResponse,
-      products: filterCardsByDietaryRestrictions(
-        agentResponse.products,
-        dietaryFlags,
-        catalog
-      ),
-    };
-  }
+  // 6. Map the decision into an AgentResponse (dietary already enforced upstream).
+  const actionMap: Record<string, 'auto-added' | 'suggest' | 'shortlist'> = {
+    ACT: 'auto-added',
+    ASK: 'suggest',
+    SHORTLIST: 'shortlist',
+    SUBSTITUTE: 'suggest',
+    PREDICT: 'suggest',
+  };
+  const agentResponse: AgentResponse = {
+    content: decision.message,
+    products: filterCardsByDietaryRestrictions(decision.products, dietaryFlags, catalog),
+    action: actionMap[decision.action],
+  };
+
+  // Record assistant reasoning trace for explainability.
+  session.agentReasoningHistory.push({
+    tool: 'intent-engine',
+    input: { message, intent: engineResult.trace.intent },
+    output: { sources: engineResult.trace.sources, reasoning: engineResult.trace.reasoning },
+    timestamp: Date.now(),
+  });
 
   // Record assistant message in conversation history
   const assistantMessage: Message = {
@@ -388,58 +359,27 @@ export async function handleMessage(
   };
   session.conversationHistory.push(assistantMessage);
 
-  // 6 & 7. After cart update: check basket completion and gap-fill triggers
+  // 7. Surface predictive suggestions (basket completion + gap-fill).
   let basketSuggestions: ProductSuggestion[] | undefined;
   let gapFillSuggestion: ProductSuggestion | null | undefined;
 
-  if (session.cartState.length >= BASKET_COMPLETION_MIN_CART_ITEMS) {
-    // 6. Basket completion trigger
-    // Only trigger if fewer than MAX_BASKET_SUGGESTIONS have been given
-    if (session.suggestionsGiven.basketCompletion < MAX_BASKET_SUGGESTIONS) {
-      const basketResult = getBasketCompletions(session.cartState, session, catalog);
-      if (basketResult.suggestions.length > 0) {
-        // Filter basket suggestions by dietary restrictions
-        const filteredBasketSuggestions = filterSuggestionsByDietaryRestrictions(
-          basketResult.suggestions,
-          dietaryFlags
-        );
-
-        if (filteredBasketSuggestions.length > 0) {
-          basketSuggestions = filteredBasketSuggestions;
-          session.suggestionsGiven.basketCompletion += filteredBasketSuggestions.length;
-        }
+  const basket: ProductSuggestion[] = [];
+  for (const pred of predictions) {
+    const product = catalog.find((p) => p.productId === pred.productId);
+    if (!product) continue;
+    const suggestion: ProductSuggestion = { product, reason: pred.reason, confidence: pred.confidence };
+    if (pred.reason.toLowerCase().includes('free delivery')) {
+      if (session.suggestionsGiven.gapFill === 0) {
+        gapFillSuggestion = suggestion;
+        session.suggestionsGiven.gapFill += 1;
       }
+    } else if (session.suggestionsGiven.basketCompletion < MAX_BASKET_SUGGESTIONS) {
+      basket.push(suggestion);
     }
-
-    // 7. Gap-fill trigger
-    // Only trigger if 0 gap-fill suggestions have been given and cart total < threshold
-    const cartTotal = calculateCartTotal(session);
-    if (
-      session.suggestionsGiven.gapFill === 0 &&
-      cartTotal < freeDeliveryThreshold
-    ) {
-      const gapFillResult = getGapFillSuggestion(
-        session.cartState,
-        session,
-        catalog,
-        freeDeliveryThreshold
-      );
-
-      if (gapFillResult.suggestion) {
-        // Filter gap-fill suggestion by dietary restrictions
-        const filteredGapFill = filterSuggestionsByDietaryRestrictions(
-          [gapFillResult.suggestion],
-          dietaryFlags
-        );
-
-        if (filteredGapFill.length > 0) {
-          gapFillSuggestion = filteredGapFill[0];
-          session.suggestionsGiven.gapFill += 1;
-        } else {
-          gapFillSuggestion = null;
-        }
-      }
-    }
+  }
+  if (basket.length > 0) {
+    basketSuggestions = filterSuggestionsByDietaryRestrictions(basket, dietaryFlags);
+    session.suggestionsGiven.basketCompletion += basketSuggestions.length;
   }
 
   // 9. Save updated session context
