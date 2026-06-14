@@ -207,7 +207,7 @@ export interface ServerInstance {
 /**
  * Create and start the Express + WebSocket server.
  */
-export function createServer(port?: number): ServerInstance {
+export function createServer(_port?: number): ServerInstance {
   const app = createApp();
   const httpServer = http.createServer(app);
 

@@ -36,7 +36,6 @@ import type {
   ProductSuggestion,
   Product,
   DietaryFlag,
-  UserProfile,
 } from '../models/index.js';
 import type {
   SessionStoreProvider,
@@ -230,19 +229,6 @@ function buildAgentContext(session: SessionContext): AgentContext {
     conversationHistory: session.conversationHistory,
     cartState: session.cartState,
   };
-}
-
-/**
- * Converts ProductSuggestions to ProductCards for inclusion in messages.
- */
-function suggestionsToCards(suggestions: ProductSuggestion[]): ProductCard[] {
-  return suggestions.map((s) => ({
-    productId: s.product.productId,
-    name: s.product.name,
-    price: s.product.price,
-    imageUrl: s.product.imageUrl,
-    reason: s.reason,
-  }));
 }
 
 /**

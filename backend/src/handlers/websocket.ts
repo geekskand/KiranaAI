@@ -344,7 +344,7 @@ const defaultAuthValidator: AuthValidator = async (token: string) => {
  * Default no-op orchestrator stub.
  * In production, this is replaced by the real orchestration pipeline.
  */
-const defaultOrchestrator: OrchestratorFn = async (userId, sessionId, content) => {
+const defaultOrchestrator: OrchestratorFn = async (_userId, sessionId, content) => {
   return {
     type: 'agentResponse' as const,
     payload: {
