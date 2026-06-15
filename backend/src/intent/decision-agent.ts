@@ -64,7 +64,15 @@ function eligibleProducts(ctx: FusedContext): CatalogProduct[] {
     .map((c) => productRag.get(c.productId))
     .filter((p): p is CatalogProduct => Boolean(p));
 
-  return resolved.filter((p) => {
+  // Expand the candidate pool to the FULL category so ranking (and "cheapest")
+  // considers every option, not just the top semantic matches.
+  const category = resolved[0]?.category;
+  const pool = category
+    ? [...new Map([...resolved, ...productRag.inCategory(category)].map((p) => [p.productId, p])).values()]
+    : resolved;
+
+  return pool.filter((p) => {
+    if (!p.inStock) return false;
     if (violatesDiet(p, ctx.dietaryFlags)) return false;
     if (ctx.avoidedBrands.includes(p.brand)) return false;
     if (ctx.rejectedBrands.includes(p.brand)) return false;
@@ -72,8 +80,15 @@ function eligibleProducts(ctx: FusedContext): CatalogProduct[] {
   });
 }
 
-/** Rank eligible products by their Decision Score (highest first). */
+/** Rank eligible products by their Decision Score (highest first).
+ * For price-sensitive users, cheapest wins outright (ties broken by score),
+ * so the "budget shopper always gets the cheapest" promise is guaranteed. */
 function rank(products: CatalogProduct[], ctx: FusedContext): CatalogProduct[] {
+  if (ctx.priceSensitive) {
+    return [...products].sort(
+      (a, b) => a.price - b.price || decisionScore(b, ctx).total - decisionScore(a, ctx).total
+    );
+  }
   return [...products].sort((a, b) => decisionScore(b, ctx).total - decisionScore(a, ctx).total);
 }
 
@@ -210,9 +225,11 @@ export function decide(ctx: FusedContext): Decision {
         `[brand ${sb.brand.toFixed(2)} · price ${sb.price.toFixed(2)} · health ${sb.health.toFixed(2)} · recency ${sb.recency.toFixed(2)} · basket ${sb.basket.toFixed(2)}]`
       );
       reasoning.push(`ACT: auto-add ${top.name} (top Decision Score)`);
+      const gapAfter = Math.max(0, ctx.freeDeliveryThreshold - (ctx.cartValue + top.price));
+      const gapNote = gapAfter > 0 ? ` You're ₹${gapAfter} from free delivery.` : ' Free delivery unlocked!';
       return decision(
         'ACT',
-        `Added ${top.name} — ₹${top.price}.${ctx.deliveryGap > 0 ? ` You're ₹${ctx.deliveryGap} from free delivery.` : ''}`,
+        `Added ${top.name} — ₹${top.price}.${gapNote}`,
         [toCard(top, ctx.preferredBrand === top.brand ? 'Your usual choice' : 'Best match for you')],
         HIGH_CONFIDENCE,
         reasoning
