@@ -209,49 +209,31 @@ export function decide(ctx: FusedContext): Decision {
   }
 
   // ─── ADD intent ────────────────────────────────────────────────────────────
+  // The user explicitly asked to add something, so Sanaya acts. She picks the
+  // top-ranked eligible item (cheapest for price-sensitive personas, otherwise
+  // best Decision Score) and auto-adds it.
   if (ctx.intent.kind === 'add') {
     const top = eligible[0];
-
-    // Strong preference OR price-sensitive single clear winner → ACT
-    const hasStrongSignal =
-      (ctx.preferredBrand && top.brand === ctx.preferredBrand) ||
-      ctx.acceptedBrands.includes(top.brand) ||
-      ctx.priceSensitive;
-
-    if (hasStrongSignal) {
-      const sb = decisionScore(top, ctx);
-      reasoning.push(
-        `Decision Score for ${top.name} = ${sb.total.toFixed(2)} ` +
-        `[brand ${sb.brand.toFixed(2)} · price ${sb.price.toFixed(2)} · health ${sb.health.toFixed(2)} · recency ${sb.recency.toFixed(2)} · basket ${sb.basket.toFixed(2)}]`
-      );
-      reasoning.push(`ACT: auto-add ${top.name} (top Decision Score)`);
-      const gapAfter = Math.max(0, ctx.freeDeliveryThreshold - (ctx.cartValue + top.price));
-      const gapNote = gapAfter > 0 ? ` You're ₹${gapAfter} from free delivery.` : ' Free delivery unlocked!';
-      return decision(
-        'ACT',
-        `Added ${top.name} — ₹${top.price}.${gapNote}`,
-        [toCard(top, ctx.preferredBrand === top.brand ? 'Your usual choice' : 'Best match for you')],
-        HIGH_CONFIDENCE,
-        reasoning
-      );
-    }
-
-    // Multiple comparable options, no strong signal → ASK brand (highest-priority gap)
-    if (eligible.length > 1) {
-      reasoning.push('ASK: brand preference unknown for this category');
-      return decision(
-        'ASK',
-        `Which would you prefer — ${eligible[0].brand} (₹${eligible[0].price}) or ${eligible[1].brand} (₹${eligible[1].price})?`,
-        eligible.slice(0, 2).map((p) => toCard(p, `${p.brand} • ₹${p.price}`)),
-        MEDIUM_CONFIDENCE,
-        reasoning,
-        `${eligible[0].brand} or ${eligible[1].brand}?`
-      );
-    }
-
-    // Single option → ACT
-    reasoning.push(`ACT: only one eligible option, ${top.name}`);
-    return decision('ACT', `Added ${top.name} — ₹${top.price}.`, [toCard(top, 'Added to cart')], HIGH_CONFIDENCE, reasoning);
+    const sb = decisionScore(top, ctx);
+    reasoning.push(
+      `Decision Score for ${top.name} = ${sb.total.toFixed(2)} ` +
+      `[brand ${sb.brand.toFixed(2)} · price ${sb.price.toFixed(2)} · health ${sb.health.toFixed(2)} · recency ${sb.recency.toFixed(2)} · basket ${sb.basket.toFixed(2)}]`
+    );
+    reasoning.push(`ACT: auto-add ${top.name} (top of ${eligible.length} eligible options)`);
+    const gapAfter = Math.max(0, ctx.freeDeliveryThreshold - (ctx.cartValue + top.price));
+    const gapNote = gapAfter > 0 ? ` You're ₹${gapAfter} from free delivery.` : ' Free delivery unlocked!';
+    const reasonLabel = ctx.preferredBrand === top.brand
+      ? 'Your usual choice'
+      : ctx.priceSensitive
+      ? 'Best value for you'
+      : 'Best match for you';
+    return decision(
+      'ACT',
+      `Added ${top.name} — ₹${top.price}.${gapNote}`,
+      [toCard(top, reasonLabel)],
+      HIGH_CONFIDENCE,
+      reasoning
+    );
   }
 
   // ─── SUBSTITUTE intent ───────────────────────────────────────────────────────
